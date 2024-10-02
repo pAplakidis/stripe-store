@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { CircularProgress } from '@mui/material';
 import Loader from '../components/Loader';
+import { loginAction, registerUserAction, whoAmIAction } from '../api/userActions';
 
 const AuthenticationContext = createContext();
 
@@ -36,7 +37,7 @@ const AuthenticationProvider = ({ children }) => {
 
   const accessTokenFromCookies = localStorage.getItem('token');
 
-  const setUserData = async (data) => {
+  const setUserData = (data) => {
     setUserId(data._id);
     setEmail(data.email);
     setFullName(data.fullName);
@@ -52,21 +53,18 @@ const AuthenticationProvider = ({ children }) => {
 
   const whoAmI = async (token) => {
     setIsAuthLoading(true);
-    try {
-      const { data } = await axios.get('/api/users/who-am-i', {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      data.token = token;
-      await setUserData(data);
-    } catch (error) {
+    const [data, error] = await whoAmIAction(token);
+    if (error) {
       logout();
       if (error.response.status === 401) {
         toast.error('Your session has expired.\nPlease log in.');
       }
+      setIsAuthLoading(false);
+      return;
     }
+
+    data.token = token;
+    setUserData(data);
     setIsAuthLoading(false);
   };
 
@@ -76,24 +74,9 @@ const AuthenticationProvider = ({ children }) => {
     };
     setIsLoginLoading(true);
 
-    try {
-      const { data } = await axios.post(
-        `/api/users/login`,
-        {
-          email,
-          password,
-        },
-        headers
-      );
-      await setUserData(data);
-      localStorage.setItem('token', data.token);
-    } catch (error) {
+    const [data, error] = await loginAction(email, password, headers);
+    if (error) {
       console.error(error.response.status, error.response.data.message);
-      // if (error.response.data.message.includes('not activated')) {
-      //   setIsAccountNotActivatedOnLogin(true);
-      //   setIsLoginLoading(false);
-      //   return;
-      // }
       setErrorMessageExists(true);
       setMessage(error.response.data.message);
       toast.error(message);
@@ -105,7 +88,12 @@ const AuthenticationProvider = ({ children }) => {
         console.log('Cannot login');
       }
       toast.error('Cannot login');
+      setIsLoginLoading(false);
+      return;
     }
+
+    setUserData(data);
+    localStorage.setItem('token', data.token);
     setIsLoginLoading(false);
   };
 
@@ -128,19 +116,8 @@ const AuthenticationProvider = ({ children }) => {
     };
     setIsRegisterLoading(true);
 
-    try {
-      await axios.post(
-        `/api/users/register`,
-        {
-          fullName,
-          email,
-          password,
-        },
-        headers
-      );
-      setFullName(fullName);
-      setSuccessfulSignUp(true);
-    } catch (error) {
+    const [data, error] = await registerUserAction(fullName, email, password, headers);
+    if (error) {
       setErrorMessageExists(true);
       setMessage(error?.response?.data?.message || error?.message || 'Unknown Error');
       toast.error(message);
@@ -151,7 +128,12 @@ const AuthenticationProvider = ({ children }) => {
       }, 5000);
       console.error(error?.response?.status, error?.response?.data?.message);
       if (error.response.status === 403) console.log('Cannot register');
+      setIsRegisterLoading(false);
+      return;
     }
+
+    setFullName(fullName);
+    setSuccessfulSignUp(true);
     setIsRegisterLoading(false);
   };
 

@@ -1,6 +1,5 @@
 import stripe from '../config/stripe.js';
 import { findUserByCustomerId, updateUserPriceIds } from '../user/userController.js';
-import User from '../user/userModel.js';
 import { createCustomer, saveCustomerId } from '../utils/stripe/utils.js';
 
 const webhook = async (req, res) => {
